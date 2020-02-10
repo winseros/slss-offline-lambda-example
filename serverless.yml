@@ -1,0 +1,41 @@
+service:
+  name: slss-offline-lambda-example
+
+frameworkVersion: '>=1.0.0 <2.0.0'
+
+plugins:
+  - serverless-offline
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'development'}
+  region: ${opt:region, 'us-east-1'}
+  stackName: slss-offline-lambda-example
+  apiName: slss-offline-lambda-example
+
+functions:
+  exampleFunc:
+    handler: src/lambda.handler
+    events:
+      - http:
+          path: /
+          method: get
+          cors: true
+          integration: lambda
+          request:
+            passThrough: NEVER
+            template:
+              application/json: "#set( $body = $input.json(\"$\") )\n\n    \n  #define( $loop )\n    {\n    #foreach($key in $map.keySet())\n        #set( $k = $util.escapeJavaScript($key) )\n        #set( $v = $util.escapeJavaScript($map.get($key)).replaceAll(\"\\\\'\", \"'\") )\n        \"$k\":\n          \"$v\"\n          #if( $foreach.hasNext ) , #end\n    #end\n    }\n  #end\n\n  {\n    \"body\": $body,\n    \"method\": \"$context.httpMethod\",\n    \"principalId\": \"$context.authorizer.principalId\",\n    \"stage\": \"$context.stage\",\n\n    \"cognitoPoolClaims\" : {\n       \n       \"sub\": \"$context.authorizer.claims.sub\"\n    },\n\n    #set( $map = $context.authorizer )\n    \"enhancedAuthContext\": $loop,\n    #set( $map = $input.params().header )\n    \"headers\": $loop,\n\n    #set( $map = $input.params().querystring )\n    \"query\": $loop,\n\n    #set( $map = $input.params().path )\n    \"path\": $loop,\n\n    #set( $map = $context.identity )\n    \"identity\": $loop,\n    #set( $map = $stageVariables )\n    \"stageVariables\": $loop,\n    \"requestPath\": \"$context.resourcePath\"\n  }"
+          response:
+            template: $input.path('$')
+            headers:
+              Content-Type: "'text/plain'"
+            statusCodes:
+              200:
+                pattern: ''
+              500:
+                pattern: '.+'
+                template: '{"error":"$input.json(\"$.errorMessage\")"}'
+                headers:
+                  Content-Type: "'application/json'"
